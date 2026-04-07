@@ -128,4 +128,5 @@ async def cosign_and_submit(
         "tx_hash": tx_hash,
         "engine_result": engine_result,
         "wallet_name": wallet_config.name,
+        "meta": meta,
     }

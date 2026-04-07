@@ -26,6 +26,10 @@ class CosignResponse(BaseModel):
     wallet_name: str = Field(
         description="Name of the wallet that was co-signed for"
     )
+    meta: dict = Field(
+        default_factory=dict,
+        description="Transaction metadata (AffectedNodes, etc.) from XRPL submission",
+    )
 
 
 class ErrorResponse(BaseModel):
