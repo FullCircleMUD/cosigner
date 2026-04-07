@@ -1,1 +1,174 @@
-# cosigner
+# XRPL Co-Signing Service
+
+Multi-wallet XRPL transaction co-signer with per-wallet business rules. Provides the second signature for XRPL native multisig wallets.
+
+## Architecture
+
+```
+Game Server (Railway)                Co-Signing Service (Render)
+┌──────────────────┐                ┌──────────────────────────┐
+│ Build tx         │                │                          │
+│ Autofill         │  POST /cosign  │ 1. Authenticate (API key)│
+│ Sign with key A  │───────────────→│ 2. Look up wallet config │
+│ (multisign=True) │                │ 3. Validate rules        │
+│                  │  {tx_hash,     │ 4. Co-sign with key B    │
+│                  │   result}      │ 5. Combine signatures    │
+│                  │←───────────────│ 6. Submit to XRPL        │
+└──────────────────┘                └──────────────────────────┘
+```
+
+The game server and co-signer run on **different infrastructure providers**. Compromising one system doesn't give access to both signing keys.
+
+## Quick Start
+
+```bash
+# 1. Install dependencies
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+
+# 2. Configure
+cp wallets.json.example wallets.json   # edit wallet addresses + rules
+cp .env.example .env                    # edit seeds + API key
+
+# 3. Run
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+## Configuration
+
+### wallets.json
+
+Maps XRPL account addresses to signing keys and business rules. Each wallet has:
+- `name` — human-readable label
+- `seed_env` — name of the env var holding the signing seed (secret stays in env, not in JSON)
+- `rules` — per-wallet validation rules
+
+```json
+{
+  "wallets": {
+    "rVaultAddress...": {
+      "name": "vault",
+      "seed_env": "WALLET_SEED_VAULT",
+      "rules": {
+        "allowed_tx_types": ["Payment", "NFTokenCreateOffer", "NFTokenAcceptOffer", "OfferCreate"],
+        "blocked_tx_types": ["AccountDelete", "SignerListSet", "SetRegularKey", "AccountSet"],
+        "require_issuer": "rIssuerAddress...",
+        "max_per_minute": 30
+      }
+    }
+  }
+}
+```
+
+Adding a new wallet = add a JSON entry + set an env var. No code changes.
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `XRPL_NETWORK_URL` | Yes | XRPL websocket endpoint |
+| `API_KEY` | Yes | Shared secret for request authentication |
+| `WALLETS_CONFIG` | No | Path to wallets.json (default: `./wallets.json`) |
+| `WALLET_SEED_VAULT` | Per wallet | Signing seed (env var name matches `seed_env` in wallets.json) |
+| `LOG_LEVEL` | No | DEBUG, INFO, WARNING, ERROR (default: INFO) |
+
+### Business Rules
+
+| Rule | Config Key | Description |
+|------|-----------|-------------|
+| Allowed types | `allowed_tx_types` | Transaction type must be in this list |
+| Blocked types | `blocked_tx_types` | Transaction type must NOT be in this list |
+| Currency issuer | `require_issuer` | All issued currency amounts must reference this issuer |
+| Rate limit | `max_per_minute` | Max transactions per minute per wallet |
+
+## API
+
+### `POST /cosign`
+
+Co-sign and submit a partially-signed XRPL transaction.
+
+**Headers:** `X-API-Key: <api_key>`
+
+**Request:**
+```json
+{
+  "tx_blob": "<hex-encoded transaction blob, signed with key A>"
+}
+```
+
+**Response (200):**
+```json
+{
+  "tx_hash": "ABC123...",
+  "engine_result": "tesSUCCESS",
+  "wallet_name": "vault"
+}
+```
+
+**Error responses:** 400 (bad request), 401 (invalid API key), 403 (rule violation), 502 (XRPL error)
+
+### `GET /health`
+
+Health check (no authentication).
+
+```json
+{
+  "status": "ok",
+  "wallets": ["vault"],
+  "network": "wss://s.altnet.rippletest.net:51233"
+}
+```
+
+## Setup Scripts
+
+### Generate Keypairs
+
+```bash
+python setup/generate_keys.py --count 3 --labels vault_a,cosigner_b,recovery_c
+```
+
+### Configure SignerList
+
+```bash
+# Set up 2-of-3 on vault
+python setup/configure_signerlist.py \
+  --network wss://s.altnet.rippletest.net:51233 \
+  --account-seed sEdMasterKey... \
+  --signers rKeyA:1,rKeyB:1,rKeyC:1 \
+  --quorum 2
+
+# Verify
+python setup/configure_signerlist.py \
+  --network wss://s.altnet.rippletest.net:51233 \
+  --account-seed sEdMasterKey... \
+  --verify-only
+
+# Remove (restore single-sig)
+python setup/configure_signerlist.py \
+  --network wss://s.altnet.rippletest.net:51233 \
+  --account-seed sEdMasterKey... \
+  --remove
+```
+
+## Tests
+
+```bash
+python -m unittest tests.test_rules -v
+```
+
+## Deployment (Render)
+
+1. Connect GitHub repo to Render
+2. Build command: `pip install -r requirements.txt`
+3. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+4. Set environment variables (seeds, API key, network URL)
+5. Upload `wallets.json` via Render's secret files or include in repo (seeds are env vars, not in JSON)
+
+## Testnet POC Walkthrough
+
+1. Generate keypairs: `python setup/generate_keys.py --count 3 --labels vault_a,cosigner_b,recovery_c`
+2. Fund key A, B, C accounts via [testnet faucet](https://faucet.altnet.rippletest.net/)
+3. Configure vault SignerList (2-of-3, quorum 2): `python setup/configure_signerlist.py ...`
+4. Set env vars and run co-signer locally: `uvicorn app.main:app --port 8000`
+5. Update game server: set `XRPL_MULTISIG_ENABLED=true`, `XRPL_COSIGNER_URL=http://localhost:8000`
+6. Test: buy/sell at a shopkeeper, verify transaction has 2 signatures on-chain

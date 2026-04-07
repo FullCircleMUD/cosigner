@@ -1,0 +1,24 @@
+{
+  "wallets": {
+    "rhYjpvpoU6FFjVSMvDRR1AUndgQx56TWaQ": {
+      "name": "vault",
+      "seed_env": "WALLET_SEED_VAULT",
+      "rules": {
+        "allowed_tx_types": [
+          "Payment",
+          "NFTokenCreateOffer",
+          "NFTokenAcceptOffer",
+          "OfferCreate"
+        ],
+        "blocked_tx_types": [
+          "AccountDelete",
+          "SignerListSet",
+          "SetRegularKey",
+          "AccountSet"
+        ],
+        "require_issuer": "rU3VtgY3LE63tmd7egjPUx37JqQXumokyJ",
+        "max_per_minute": 30
+      }
+    }
+  }
+}
