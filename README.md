@@ -41,6 +41,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 Maps XRPL account addresses to signing keys and business rules. Each wallet has:
 - `name` — human-readable label
 - `seed_env` — name of the env var holding the signing seed (secret stays in env, not in JSON)
+- `network_url` — XRPL websocket endpoint for this wallet (required)
 - `rules` — per-wallet validation rules
 
 ```json
@@ -48,7 +49,8 @@ Maps XRPL account addresses to signing keys and business rules. Each wallet has:
   "wallets": {
     "rVaultAddress...": {
       "name": "vault",
-      "seed_env": "WALLET_SEED_VAULT",
+      "seed_env": "TESTNET_SIGNER_B_SEED_VAULT",
+      "network_url": "wss://s.altnet.rippletest.net:51233",
       "rules": {
         "allowed_tx_types": ["Payment", "NFTokenCreateOffer", "NFTokenAcceptOffer", "OfferCreate"],
         "blocked_tx_types": ["AccountDelete", "SignerListSet", "SetRegularKey", "AccountSet"],
@@ -60,17 +62,18 @@ Maps XRPL account addresses to signing keys and business rules. Each wallet has:
 }
 ```
 
-Adding a new wallet = add a JSON entry + set an env var. No code changes.
+Adding a new wallet = add a JSON entry + set an env var. No code changes, no redeploy.
 
 ### Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `XRPL_NETWORK_URL` | Yes | XRPL websocket endpoint |
 | `API_KEY` | Yes | Shared secret for request authentication |
 | `WALLETS_CONFIG` | No | Path to wallets.json (default: `./wallets.json`) |
-| `WALLET_SEED_VAULT` | Per wallet | Signing seed (env var name matches `seed_env` in wallets.json) |
+| `<SEED_ENV>` | Per wallet | Signing seed — env var name matches `seed_env` in wallets.json (e.g. `TESTNET_SIGNER_B_SEED_VAULT`) |
 | `LOG_LEVEL` | No | DEBUG, INFO, WARNING, ERROR (default: INFO) |
+
+Network URLs are configured per wallet in `wallets.json`, not as global env vars. This allows a single instance to serve wallets on different XRPL networks.
 
 ### Business Rules
 
@@ -114,8 +117,9 @@ Health check (no authentication).
 ```json
 {
   "status": "ok",
-  "wallets": ["vault"],
-  "network": "wss://s.altnet.rippletest.net:51233"
+  "wallets": {
+    "vault": "wss://s.altnet.rippletest.net:51233"
+  }
 }
 ```
 
@@ -153,16 +157,19 @@ python setup/configure_signerlist.py \
 ## Tests
 
 ```bash
-python -m unittest tests.test_rules -v
+python -m pytest tests/ -v
 ```
+
+42 tests covering config loading, co-sign logic, FastAPI endpoints, and business rules.
 
 ## Deployment (Render)
 
 1. Connect GitHub repo to Render
 2. Build command: `pip install -r requirements.txt`
 3. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-4. Set environment variables (seeds, API key, network URL)
-5. Upload `wallets.json` via Render's secret files or include in repo (seeds are env vars, not in JSON)
+4. Set environment variables: `API_KEY`, seed env vars, `LOG_LEVEL`, `WALLETS_CONFIG`
+5. Upload `wallets.json` via Render Secret Files (mount at `/etc/secrets/wallets.json`, set `WALLETS_CONFIG=/etc/secrets/wallets.json`)
+6. Set health check path to `/health`
 
 ## Testnet POC Walkthrough
 
