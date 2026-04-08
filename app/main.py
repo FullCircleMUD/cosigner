@@ -55,11 +55,10 @@ def _verify_api_key(
 async def health():
     """Health check — no authentication required."""
     config = _get_config()
-    wallet_names = [w.name for w in config.wallets.values()]
+    wallets = {w.name: w.network_url for w in config.wallets.values()}
     return {
         "status": "ok",
-        "wallets": wallet_names,
-        "network": config.xrpl_network_url,
+        "wallets": wallets,
     }
 
 

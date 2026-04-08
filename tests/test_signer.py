@@ -21,7 +21,6 @@ ISSUER_ADDRESS = "rISSUER33333333333333333333333333"
 def _make_config():
     """Create a test AppConfig with one vault wallet."""
     return AppConfig(
-        xrpl_network_url="wss://s.altnet.rippletest.net:51233",
         api_key="test-key",
         log_level="INFO",
         wallets={
@@ -29,6 +28,7 @@ def _make_config():
                 address=VAULT_ADDRESS,
                 name="vault",
                 seed="sEdFAKESEED",
+                network_url="wss://s.altnet.rippletest.net:51233",
                 rules=WalletRules(
                     allowed_tx_types=frozenset(["Payment", "OfferCreate"]),
                     blocked_tx_types=frozenset(["AccountDelete"]),
@@ -127,7 +127,6 @@ class TestCosignSuccess:
             network_url="wss://custom.xrpl.net:51233",
         )
         custom_config = AppConfig(
-            xrpl_network_url="wss://s.altnet.rippletest.net:51233",
             api_key="test-key",
             log_level="INFO",
             wallets={VAULT_ADDRESS: wallet_with_url},

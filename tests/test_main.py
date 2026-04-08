@@ -23,7 +23,6 @@ TEST_API_KEY = "test-secret-key"
 def _test_config():
     """Create a test AppConfig."""
     return AppConfig(
-        xrpl_network_url="wss://s.altnet.rippletest.net:51233",
         api_key=TEST_API_KEY,
         log_level="INFO",
         wallets={
@@ -31,6 +30,7 @@ def _test_config():
                 address=VAULT_ADDRESS,
                 name="vault",
                 seed="sEdFAKESEED",
+                network_url="wss://s.altnet.rippletest.net:51233",
                 rules=WalletRules(
                     allowed_tx_types=frozenset(["Payment"]),
                     blocked_tx_types=frozenset(["AccountDelete"]),
@@ -61,7 +61,7 @@ class TestHealthEndpoint:
         data = response.json()
         assert data["status"] == "ok"
         assert "vault" in data["wallets"]
-        assert "altnet" in data["network"]
+        assert "altnet" in data["wallets"]["vault"]
 
 
 class TestCosignAuth:

@@ -40,7 +40,6 @@ class WalletConfig:
 class AppConfig:
     """Application-wide configuration."""
 
-    xrpl_network_url: str
     api_key: str
     log_level: str
     wallets: dict[str, WalletConfig]  # keyed by XRPL r-address
@@ -53,10 +52,6 @@ def load_config() -> AppConfig:
     Raises:
         ValueError: If required env vars are missing or wallet config is invalid.
     """
-    xrpl_network_url = os.environ.get("XRPL_NETWORK_URL", "")
-    if not xrpl_network_url:
-        raise ValueError("XRPL_NETWORK_URL environment variable is required")
-
     api_key = os.environ.get("API_KEY", "")
     if not api_key:
         raise ValueError("API_KEY environment variable is required")
@@ -105,8 +100,15 @@ def load_config() -> AppConfig:
         ", ".join(f"{w.name} ({w.address[:8]}...)" for w in wallets.values()),
     )
 
+    # Validate every wallet has a network_url
+    for address, wconfig in wallets.items():
+        if not wconfig.network_url:
+            raise ValueError(
+                f"Wallet '{wconfig.name}' ({address}): "
+                f"network_url is required in wallets.json"
+            )
+
     return AppConfig(
-        xrpl_network_url=xrpl_network_url,
         api_key=api_key,
         log_level=log_level,
         wallets=wallets,

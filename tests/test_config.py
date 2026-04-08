@@ -19,7 +19,6 @@ def _write_wallets_json(path, wallets_dict):
 
 def _base_env(monkeypatch, wallets_path):
     """Set the minimum required env vars for a valid config."""
-    monkeypatch.setenv("XRPL_NETWORK_URL", "wss://s.altnet.rippletest.net:51233")
     monkeypatch.setenv("API_KEY", "test-api-key")
     monkeypatch.setenv("WALLETS_CONFIG", str(wallets_path))
     monkeypatch.setenv("WALLET_SEED_VAULT", "sEdFAKESEED_VAULT")
@@ -30,6 +29,7 @@ SINGLE_WALLET_JSON = {
         "rVAULT111111111111111111111111111": {
             "name": "vault",
             "seed_env": "WALLET_SEED_VAULT",
+            "network_url": "wss://s.altnet.rippletest.net:51233",
             "rules": {
                 "allowed_tx_types": ["Payment", "OfferCreate"],
                 "blocked_tx_types": ["AccountDelete"],
@@ -50,7 +50,6 @@ class TestLoadConfigSuccess:
         config = load_config()
 
         assert isinstance(config, AppConfig)
-        assert config.xrpl_network_url == "wss://s.altnet.rippletest.net:51233"
         assert config.api_key == "test-api-key"
         assert config.log_level == "INFO"
         assert "rVAULT111111111111111111111111111" in config.wallets
@@ -78,6 +77,7 @@ class TestLoadConfigSuccess:
                 "rVAULT111111111111111111111111111": {
                     "name": "vault",
                     "seed_env": "WALLET_SEED_VAULT",
+                    "network_url": "wss://s.altnet.rippletest.net:51233",
                     "rules": {
                         "allowed_tx_types": ["Payment"],
                         # no max_per_minute — should default to 30
@@ -99,11 +99,13 @@ class TestLoadConfigSuccess:
                 "rVAULT111111111111111111111111111": {
                     "name": "vault",
                     "seed_env": "WALLET_SEED_VAULT",
+                    "network_url": "wss://s.altnet.rippletest.net:51233",
                     "rules": {"allowed_tx_types": ["Payment"]},
                 },
                 "rISSUER22222222222222222222222222": {
                     "name": "issuer",
                     "seed_env": "WALLET_SEED_ISSUER",
+                    "network_url": "wss://s.altnet.rippletest.net:51233",
                     "rules": {"allowed_tx_types": ["Payment", "NFTokenMint"]},
                 },
             }
@@ -138,24 +140,22 @@ class TestLoadConfigSuccess:
         wallet = config.wallets["rVAULT111111111111111111111111111"]
         assert wallet.network_url == "wss://custom.xrpl.net:51233"
 
-    def test_no_wallet_network_url_defaults_none(self, tmp_path, monkeypatch):
-        wallets_path = tmp_path / "wallets.json"
-        _write_wallets_json(wallets_path, SINGLE_WALLET_JSON)
-        _base_env(monkeypatch, wallets_path)
-
-        config = load_config()
-        wallet = config.wallets["rVAULT111111111111111111111111111"]
-        assert wallet.network_url is None
-
-
 class TestLoadConfigErrors:
-    def test_missing_network_url(self, tmp_path, monkeypatch):
+    def test_missing_wallet_network_url(self, tmp_path, monkeypatch):
+        wallets_json = {
+            "wallets": {
+                "rVAULT111111111111111111111111111": {
+                    "name": "vault",
+                    "seed_env": "WALLET_SEED_VAULT",
+                    "rules": {"allowed_tx_types": ["Payment"]},
+                }
+            }
+        }
         wallets_path = tmp_path / "wallets.json"
-        _write_wallets_json(wallets_path, SINGLE_WALLET_JSON)
+        _write_wallets_json(wallets_path, wallets_json)
         _base_env(monkeypatch, wallets_path)
-        monkeypatch.delenv("XRPL_NETWORK_URL")
 
-        with pytest.raises(ValueError, match="XRPL_NETWORK_URL"):
+        with pytest.raises(ValueError, match="network_url is required"):
             load_config()
 
     def test_missing_api_key(self, tmp_path, monkeypatch):
