@@ -101,8 +101,9 @@ async def cosign_and_submit(
         tx_dict.get("TransactionType"),
     )
 
+    network_url = wallet_config.network_url or config.xrpl_network_url
     try:
-        async with AsyncWebsocketClient(config.xrpl_network_url) as client:
+        async with AsyncWebsocketClient(network_url) as client:
             result = await submit_and_wait(combined, client)
     except Exception as e:
         raise CosignError("submission_failed", f"XRPL submission failed: {e}")

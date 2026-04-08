@@ -119,6 +119,35 @@ class TestLoadConfigSuccess:
         assert config.wallets["rISSUER22222222222222222222222222"].name == "issuer"
 
 
+    def test_per_wallet_network_url(self, tmp_path, monkeypatch):
+        wallets_json = {
+            "wallets": {
+                "rVAULT111111111111111111111111111": {
+                    "name": "vault",
+                    "seed_env": "WALLET_SEED_VAULT",
+                    "network_url": "wss://custom.xrpl.net:51233",
+                    "rules": {"allowed_tx_types": ["Payment"]},
+                }
+            }
+        }
+        wallets_path = tmp_path / "wallets.json"
+        _write_wallets_json(wallets_path, wallets_json)
+        _base_env(monkeypatch, wallets_path)
+
+        config = load_config()
+        wallet = config.wallets["rVAULT111111111111111111111111111"]
+        assert wallet.network_url == "wss://custom.xrpl.net:51233"
+
+    def test_no_wallet_network_url_defaults_none(self, tmp_path, monkeypatch):
+        wallets_path = tmp_path / "wallets.json"
+        _write_wallets_json(wallets_path, SINGLE_WALLET_JSON)
+        _base_env(monkeypatch, wallets_path)
+
+        config = load_config()
+        wallet = config.wallets["rVAULT111111111111111111111111111"]
+        assert wallet.network_url is None
+
+
 class TestLoadConfigErrors:
     def test_missing_network_url(self, tmp_path, monkeypatch):
         wallets_path = tmp_path / "wallets.json"

@@ -33,6 +33,7 @@ class WalletConfig:
     name: str
     seed: str  # resolved from env var
     rules: WalletRules
+    network_url: str | None = None  # per-wallet override; falls back to global
 
 
 @dataclass(frozen=True)
@@ -92,6 +93,7 @@ def load_config() -> AppConfig:
             name=wdata.get("name", address),
             seed=seed,
             rules=rules,
+            network_url=wdata.get("network_url"),
         )
 
     if not wallets:

@@ -111,6 +111,51 @@ class TestCosignSuccess:
         assert "meta" in result
 
 
+    @pytest.mark.asyncio
+    async def test_uses_wallet_network_url(self, config):
+        """When wallet has network_url, signer uses it instead of global."""
+        # Add a wallet with per-wallet network_url
+        wallet_with_url = WalletConfig(
+            address=VAULT_ADDRESS,
+            name="vault",
+            seed="sEdFAKESEED",
+            rules=WalletRules(
+                allowed_tx_types=frozenset(["Payment"]),
+                blocked_tx_types=frozenset(),
+                max_per_minute=30,
+            ),
+            network_url="wss://custom.xrpl.net:51233",
+        )
+        custom_config = AppConfig(
+            xrpl_network_url="wss://s.altnet.rippletest.net:51233",
+            api_key="test-key",
+            log_level="INFO",
+            wallets={VAULT_ADDRESS: wallet_with_url},
+        )
+
+        tx_dict = _make_tx_dict()
+        mock_tx = MagicMock()
+        mock_tx.to_xrpl.return_value = tx_dict
+
+        mock_ws_ctx = AsyncMock()
+        mock_ws_ctx.__aenter__ = AsyncMock(return_value=AsyncMock())
+        mock_ws_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("app.signer.Transaction.from_blob", return_value=mock_tx),
+            patch("app.signer.validate_transaction", return_value=[]),
+            patch("app.signer.Wallet.from_seed", return_value=MagicMock()),
+            patch("app.signer.sign", return_value=MagicMock()),
+            patch("app.signer.multisign", return_value=MagicMock()),
+            patch("app.signer.AsyncWebsocketClient", return_value=mock_ws_ctx) as mock_ws_class,
+            patch("app.signer.submit_and_wait", new_callable=AsyncMock,
+                  return_value=_mock_submit_result()),
+        ):
+            await cosign_and_submit("deadbeef", custom_config)
+            # Verify the per-wallet URL was used, not the global one
+            mock_ws_class.assert_called_once_with("wss://custom.xrpl.net:51233")
+
+
 class TestCosignErrors:
     @pytest.mark.asyncio
     async def test_invalid_blob(self, config):
