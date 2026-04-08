@@ -2,7 +2,7 @@
   "wallets": {
     "rhYjpvpoU6FFjVSMvDRR1AUndgQx56TWaQ": {
       "name": "vault",
-      "seed_env": "WALLET_SEED_VAULT",
+      "seed_env": "TESTNET_SIGNER_B_SEED_VAULT",
       "network_url": "wss://s.altnet.rippletest.net:51233",
       "rules": {
         "allowed_tx_types": [
