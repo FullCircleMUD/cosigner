@@ -15,10 +15,13 @@ Usage:
         --issuer-address <ISSUER_ADDRESS> \
         --network wss://s.altnet.rippletest.net:51233
 
-    # Or with defaults for FCM testnet:
+    # Example for FCM mainnet:
     python setup/integration_test.py \
         --api-key <COSIGNER_API_KEY> \
-        --signer-seed <KEY_A_SEED>
+        --signer-seed <KEY_A_SEED> \
+        --vault-address <VAULT_ADDRESS> \
+        --issuer-address <ISSUER_ADDRESS> \
+        --network wss://xrplcluster.com
 """
 
 import argparse
@@ -36,9 +39,7 @@ from xrpl.transaction import sign
 from xrpl.wallet import Wallet
 
 
-TESTNET_NETWORK = "wss://s.altnet.rippletest.net:51233"
-TESTNET_VAULT = "rhYjpvpoU6FFjVSMvDRR1AUndgQx56TWaQ"
-TESTNET_ISSUER = "rU3VtgY3LE63tmd7egjPUx37JqQXumokyJ"
+DEFAULT_NETWORK = "wss://xrplcluster.com"
 
 
 def encode_currency_hex(code):
@@ -117,16 +118,16 @@ def main():
     parser.add_argument("--api-key", required=True, help="Cosigner API key")
     parser.add_argument("--signer-seed", required=True, help="Key A's seed")
     parser.add_argument(
-        "--vault-address", default=TESTNET_VAULT,
-        help=f"Vault account address (default: {TESTNET_VAULT})",
+        "--vault-address", required=True,
+        help="Vault account address",
     )
     parser.add_argument(
-        "--issuer-address", default=TESTNET_ISSUER,
-        help=f"Issuer address (default: {TESTNET_ISSUER})",
+        "--issuer-address", required=True,
+        help="Issuer address",
     )
     parser.add_argument(
-        "--network", default=TESTNET_NETWORK,
-        help=f"XRPL network URL for autofill (default: {TESTNET_NETWORK})",
+        "--network", default=DEFAULT_NETWORK,
+        help=f"XRPL network URL for autofill (default: {DEFAULT_NETWORK})",
     )
     args = parser.parse_args()
 
