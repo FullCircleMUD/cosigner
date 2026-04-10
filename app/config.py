@@ -43,6 +43,7 @@ class AppConfig:
     api_key: str
     log_level: str
     wallets: dict[str, WalletConfig]  # keyed by XRPL r-address
+    dev_api_key: str | None = None  # optional; requests using this key skip XRPL submission
 
 
 def load_config() -> AppConfig:
@@ -55,6 +56,8 @@ def load_config() -> AppConfig:
     api_key = os.environ.get("API_KEY", "")
     if not api_key:
         raise ValueError("API_KEY environment variable is required")
+
+    dev_api_key = os.environ.get("DEV_API_KEY") or None
 
     log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 
@@ -112,4 +115,5 @@ def load_config() -> AppConfig:
         api_key=api_key,
         log_level=log_level,
         wallets=wallets,
+        dev_api_key=dev_api_key,
     )

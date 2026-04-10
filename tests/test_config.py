@@ -121,6 +121,24 @@ class TestLoadConfigSuccess:
         assert config.wallets["rISSUER22222222222222222222222222"].name == "issuer"
 
 
+    def test_dev_api_key_loaded(self, tmp_path, monkeypatch):
+        wallets_path = tmp_path / "wallets.json"
+        _write_wallets_json(wallets_path, SINGLE_WALLET_JSON)
+        _base_env(monkeypatch, wallets_path)
+        monkeypatch.setenv("DEV_API_KEY", "dev-test-key")
+
+        config = load_config()
+        assert config.dev_api_key == "dev-test-key"
+
+    def test_dev_api_key_defaults_to_none(self, tmp_path, monkeypatch):
+        wallets_path = tmp_path / "wallets.json"
+        _write_wallets_json(wallets_path, SINGLE_WALLET_JSON)
+        _base_env(monkeypatch, wallets_path)
+        monkeypatch.delenv("DEV_API_KEY", raising=False)
+
+        config = load_config()
+        assert config.dev_api_key is None
+
     def test_per_wallet_network_url(self, tmp_path, monkeypatch):
         wallets_json = {
             "wallets": {

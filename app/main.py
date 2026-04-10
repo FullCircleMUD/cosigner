@@ -42,11 +42,17 @@ def _get_config() -> AppConfig:
 def _verify_api_key(
     authorization: str = Header(alias="X-API-Key"),
     config: AppConfig = Depends(_get_config),
-) -> AppConfig:
-    """Verify the API key from the request header."""
-    if authorization != config.api_key:
-        raise HTTPException(status_code=401, detail="Invalid API key")
-    return config
+) -> tuple[AppConfig, bool]:
+    """Verify the API key from the request header.
+
+    Returns (config, dev_mode) where dev_mode is True when the request
+    was authenticated with the DEV_API_KEY.
+    """
+    if authorization == config.api_key:
+        return config, False
+    if config.dev_api_key and authorization == config.dev_api_key:
+        return config, True
+    raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
@@ -74,7 +80,7 @@ async def health():
 )
 async def cosign(
     request: CosignRequest,
-    config: AppConfig = Depends(_verify_api_key),
+    auth: tuple[AppConfig, bool] = Depends(_verify_api_key),
 ):
     """
     Co-sign a partially-signed XRPL transaction and submit to the network.
@@ -84,9 +90,12 @@ async def cosign(
     (key B), combines them, and submits to XRPL.
 
     Requires X-API-Key header for authentication.
+    When authenticated with the DEV_API_KEY, the full pipeline runs but
+    XRPL submission is skipped and a mock success response is returned.
     """
+    config, dev_mode = auth
     try:
-        result = await cosign_and_submit(request.tx_blob, config)
+        result = await cosign_and_submit(request.tx_blob, config, dev_mode=dev_mode)
     except CosignError as e:
         status_map = {
             "invalid_transaction": 400,

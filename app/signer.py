@@ -6,6 +6,7 @@ co-signs with the configured wallet key, combines signatures,
 and submits to the XRPL network.
 """
 
+import hashlib
 import logging
 
 from xrpl.asyncio.clients import AsyncWebsocketClient
@@ -33,6 +34,8 @@ class CosignError(Exception):
 async def cosign_and_submit(
     tx_blob: str,
     config: AppConfig,
+    *,
+    dev_mode: bool = False,
 ) -> dict:
     """
     Co-sign a partially-signed transaction and submit to XRPL.
@@ -41,9 +44,11 @@ async def cosign_and_submit(
         tx_blob: Hex-encoded transaction blob, already signed with key A
                  (multisign=True). Contains a Signers array with one entry.
         config: Application configuration with wallet configs and network URL.
+        dev_mode: If True, run the full pipeline (deserialise, validate, sign,
+                  combine) but skip XRPL submission and return a mock success.
 
     Returns:
-        dict with tx_hash, engine_result, wallet_name.
+        dict with tx_hash, engine_result, wallet_name, meta.
 
     Raises:
         CosignError: If validation fails or submission fails.
@@ -93,7 +98,26 @@ async def cosign_and_submit(
     except Exception as e:
         raise CosignError("combine_failed", f"Failed to combine signatures: {e}")
 
-    # 7. Submit to XRPL
+    # 7. Submit to XRPL (or return mock response in dev mode)
+    if dev_mode:
+        from xrpl.core.binarycodec import encode
+
+        combined_blob = encode(combined.to_xrpl())
+        fake_hash = hashlib.sha256(combined_blob.encode()).hexdigest().upper()
+        logger.info(
+            "DEV MODE: skipping XRPL submission for %s (%s): type=%s, fake_hash=%s",
+            wallet_config.name,
+            account[:8],
+            tx_dict.get("TransactionType"),
+            fake_hash,
+        )
+        return {
+            "tx_hash": fake_hash,
+            "engine_result": "tesSUCCESS",
+            "wallet_name": wallet_config.name,
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
+
     logger.info(
         "Submitting multisigned tx for %s (%s): type=%s",
         wallet_config.name,

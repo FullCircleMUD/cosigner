@@ -18,6 +18,7 @@ from app.signer import CosignError
 
 VAULT_ADDRESS = "rVAULT111111111111111111111111111"
 TEST_API_KEY = "test-secret-key"
+TEST_DEV_API_KEY = "test-dev-key"
 
 
 def _test_config():
@@ -38,6 +39,7 @@ def _test_config():
                 ),
             )
         },
+        dev_api_key=TEST_DEV_API_KEY,
     )
 
 
@@ -76,6 +78,56 @@ class TestCosignAuth:
             headers={"X-API-Key": "wrong-key"},
         )
         assert response.status_code == 401
+
+
+class TestDevApiKeyAuth:
+    @patch("app.main.cosign_and_submit", new_callable=AsyncMock)
+    def test_dev_api_key_accepted(self, mock_cosign, client):
+        mock_cosign.return_value = {
+            "tx_hash": "DEVHASH",
+            "engine_result": "tesSUCCESS",
+            "wallet_name": "vault",
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
+
+        response = client.post(
+            "/cosign",
+            json={"tx_blob": "deadbeef"},
+            headers={"X-API-Key": TEST_DEV_API_KEY},
+        )
+        assert response.status_code == 200
+
+    @patch("app.main.cosign_and_submit", new_callable=AsyncMock)
+    def test_dev_api_key_passes_dev_mode(self, mock_cosign, client):
+        mock_cosign.return_value = {
+            "tx_hash": "DEVHASH",
+            "engine_result": "tesSUCCESS",
+            "wallet_name": "vault",
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
+
+        client.post(
+            "/cosign",
+            json={"tx_blob": "deadbeef"},
+            headers={"X-API-Key": TEST_DEV_API_KEY},
+        )
+        mock_cosign.assert_called_once_with("deadbeef", _test_config(), dev_mode=True)
+
+    @patch("app.main.cosign_and_submit", new_callable=AsyncMock)
+    def test_prod_api_key_passes_no_dev_mode(self, mock_cosign, client):
+        mock_cosign.return_value = {
+            "tx_hash": "AABB1234",
+            "engine_result": "tesSUCCESS",
+            "wallet_name": "vault",
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
+
+        client.post(
+            "/cosign",
+            json={"tx_blob": "deadbeef"},
+            headers={"X-API-Key": TEST_API_KEY},
+        )
+        mock_cosign.assert_called_once_with("deadbeef", _test_config(), dev_mode=False)
 
 
 class TestCosignEndpoint:

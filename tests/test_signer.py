@@ -155,6 +155,95 @@ class TestCosignSuccess:
             mock_ws_class.assert_called_once_with("wss://custom.xrpl.net:51233")
 
 
+class TestDevMode:
+    @pytest.mark.asyncio
+    async def test_dev_mode_skips_submission(self, config):
+        """Dev mode runs full pipeline but skips XRPL submission."""
+        tx_dict = _make_tx_dict()
+        mock_tx = MagicMock()
+        mock_tx.to_xrpl.return_value = tx_dict
+
+        mock_combined = MagicMock()
+        mock_combined.to_xrpl.return_value = tx_dict
+
+        with (
+            patch("app.signer.Transaction.from_blob", return_value=mock_tx),
+            patch("app.signer.Wallet.from_seed", return_value=MagicMock()),
+            patch("app.signer.sign", return_value=MagicMock()),
+            patch("app.signer.multisign", return_value=mock_combined),
+            patch("app.signer.validate_transaction", return_value=[]),
+            patch("xrpl.core.binarycodec.encode", return_value="AABBCCDD") as mock_encode,
+            patch("app.signer.AsyncWebsocketClient") as mock_ws,
+            patch("app.signer.submit_and_wait") as mock_submit,
+        ):
+            result = await cosign_and_submit("deadbeef", config, dev_mode=True)
+
+        # Submission should NOT be called
+        mock_ws.assert_not_called()
+        mock_submit.assert_not_called()
+
+        # Should return mock success
+        assert result["engine_result"] == "tesSUCCESS"
+        assert result["wallet_name"] == "vault"
+        assert result["meta"] == {"TransactionResult": "tesSUCCESS"}
+        assert len(result["tx_hash"]) == 64  # SHA-256 hex
+
+    @pytest.mark.asyncio
+    async def test_dev_mode_still_validates_rules(self, config):
+        """Dev mode should still catch rule violations."""
+        tx_dict = _make_tx_dict()
+        mock_tx = MagicMock()
+        mock_tx.to_xrpl.return_value = tx_dict
+
+        violations = [RuleViolation(rule="blocked_tx_types", detail="blocked")]
+
+        with (
+            patch("app.signer.Transaction.from_blob", return_value=mock_tx),
+            patch("app.signer.validate_transaction", return_value=violations),
+        ):
+            with pytest.raises(CosignError) as exc_info:
+                await cosign_and_submit("deadbeef", config, dev_mode=True)
+            assert exc_info.value.error_type == "rule_violation"
+
+    @pytest.mark.asyncio
+    async def test_dev_mode_still_checks_missing_signature(self, config):
+        """Dev mode should still catch missing signatures."""
+        tx_dict = _make_tx_dict(signers=[])
+        mock_tx = MagicMock()
+        mock_tx.to_xrpl.return_value = tx_dict
+
+        with (
+            patch("app.signer.Transaction.from_blob", return_value=mock_tx),
+            patch("app.signer.validate_transaction", return_value=[]),
+        ):
+            with pytest.raises(CosignError) as exc_info:
+                await cosign_and_submit("deadbeef", config, dev_mode=True)
+            assert exc_info.value.error_type == "missing_signature"
+
+    @pytest.mark.asyncio
+    async def test_dev_mode_deterministic_hash(self, config):
+        """Same input should produce same fake tx_hash."""
+        tx_dict = _make_tx_dict()
+        mock_tx = MagicMock()
+        mock_tx.to_xrpl.return_value = tx_dict
+
+        mock_combined = MagicMock()
+        mock_combined.to_xrpl.return_value = tx_dict
+
+        with (
+            patch("app.signer.Transaction.from_blob", return_value=mock_tx),
+            patch("app.signer.Wallet.from_seed", return_value=MagicMock()),
+            patch("app.signer.sign", return_value=MagicMock()),
+            patch("app.signer.multisign", return_value=mock_combined),
+            patch("app.signer.validate_transaction", return_value=[]),
+            patch("xrpl.core.binarycodec.encode", return_value="AABBCCDD"),
+        ):
+            result1 = await cosign_and_submit("deadbeef", config, dev_mode=True)
+            result2 = await cosign_and_submit("deadbeef", config, dev_mode=True)
+
+        assert result1["tx_hash"] == result2["tx_hash"]
+
+
 class TestCosignErrors:
     @pytest.mark.asyncio
     async def test_invalid_blob(self, config):
