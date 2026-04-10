@@ -68,9 +68,10 @@ Adding a new wallet = add a JSON entry + set an env var. No code changes, no red
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `API_KEY` | Yes | Shared secret for request authentication |
+| `API_KEY` | Yes | Production API key — requests using this key co-sign and submit to XRPL |
+| `DEV_API_KEY` | No | Dev API key — requests using this key run the full pipeline but skip XRPL submission, returning a mock success response. Safe to share with dev environments |
 | `WALLETS_CONFIG` | No | Path to wallets.json (default: `./wallets.json`) |
-| `<SEED_ENV>` | Per wallet | Signing seed — env var name matches `seed_env` in wallets.json (e.g. `TESTNET_SIGNER_B_SEED_VAULT`) |
+| `<SEED_ENV>` | Per wallet | Signing seed — env var name matches `seed_env` in wallets.json (e.g. `SIGNER_B_SEED_VAULT`) |
 | `LOG_LEVEL` | No | DEBUG, INFO, WARNING, ERROR (default: INFO) |
 
 Network URLs are configured per wallet in `wallets.json`, not as global env vars. This allows a single instance to serve wallets on different XRPL networks.
@@ -160,14 +161,14 @@ python setup/configure_signerlist.py \
 python -m pytest tests/ -v
 ```
 
-42 tests covering config loading, co-sign logic, FastAPI endpoints, and business rules.
+51 tests covering config loading, co-sign logic, FastAPI endpoints, business rules, and dev mode.
 
 ## Deployment (Render)
 
 1. Connect GitHub repo to Render
 2. Build command: `pip install -r requirements.txt`
 3. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-4. Set environment variables: `API_KEY`, seed env vars, `LOG_LEVEL`, `WALLETS_CONFIG`
+4. Set environment variables: `API_KEY`, `DEV_API_KEY` (optional), seed env vars, `LOG_LEVEL`, `WALLETS_CONFIG`
 5. Upload `wallets.json` via Render Secret Files (mount at `/etc/secrets/wallets.json`, set `WALLETS_CONFIG=/etc/secrets/wallets.json`)
 6. Set health check path to `/health`
 
