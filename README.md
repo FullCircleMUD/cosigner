@@ -49,8 +49,8 @@ Maps XRPL account addresses to signing keys and business rules. Each wallet has:
   "wallets": {
     "rVaultAddress...": {
       "name": "vault",
-      "seed_env": "TESTNET_SIGNER_B_SEED_VAULT",
-      "network_url": "wss://s.altnet.rippletest.net:51233",
+      "seed_env": "SIGNER_B_SEED_VAULT",
+      "network_url": "wss://xrplcluster.com",
       "rules": {
         "allowed_tx_types": ["Payment", "NFTokenCreateOffer", "NFTokenAcceptOffer", "OfferCreate"],
         "blocked_tx_types": ["AccountDelete", "SignerListSet", "SetRegularKey", "AccountSet"],
@@ -119,7 +119,7 @@ Health check (no authentication).
 {
   "status": "ok",
   "wallets": {
-    "vault": "wss://s.altnet.rippletest.net:51233"
+    "vault": "wss://xrplcluster.com"
   }
 }
 ```
@@ -137,20 +137,20 @@ python setup/generate_keys.py --count 3 --labels vault_a,cosigner_b,recovery_c
 ```bash
 # Set up 2-of-3 on vault
 python setup/configure_signerlist.py \
-  --network wss://s.altnet.rippletest.net:51233 \
+  --network wss://xrplcluster.com \
   --account-seed sEdMasterKey... \
   --signers rKeyA:1,rKeyB:1,rKeyC:1 \
   --quorum 2
 
 # Verify
 python setup/configure_signerlist.py \
-  --network wss://s.altnet.rippletest.net:51233 \
+  --network wss://xrplcluster.com \
   --account-seed sEdMasterKey... \
   --verify-only
 
 # Remove (restore single-sig)
 python setup/configure_signerlist.py \
-  --network wss://s.altnet.rippletest.net:51233 \
+  --network wss://xrplcluster.com \
   --account-seed sEdMasterKey... \
   --remove
 ```
@@ -172,11 +172,14 @@ python -m pytest tests/ -v
 5. Upload `wallets.json` via Render Secret Files (mount at `/etc/secrets/wallets.json`, set `WALLETS_CONFIG=/etc/secrets/wallets.json`)
 6. Set health check path to `/health`
 
-## Testnet POC Walkthrough
+## Integration Test
 
-1. Generate keypairs: `python setup/generate_keys.py --count 3 --labels vault_a,cosigner_b,recovery_c`
-2. Fund key A, B, C accounts via [testnet faucet](https://faucet.altnet.rippletest.net/)
-3. Configure vault SignerList (2-of-3, quorum 2): `python setup/configure_signerlist.py ...`
-4. Set env vars and run co-signer locally: `uvicorn app.main:app --port 8000`
-5. Update game server: set `XRPL_MULTISIG_ENABLED=true`, `XRPL_COSIGNER_URL=http://localhost:8000`
-6. Test: buy/sell at a shopkeeper, verify transaction has 2 signatures on-chain
+```bash
+python setup/integration_test.py \
+    --api-key <COSIGNER_API_KEY> \
+    --signer-seed <KEY_A_SEED> \
+    --vault-address <VAULT_ADDRESS> \
+    --issuer-address <ISSUER_ADDRESS>
+```
+
+Sends a tiny (0.001 FCMGold) payment from vault to issuer. Works with both production and dev API keys — dev mode runs the full pipeline but skips on-chain submission.
