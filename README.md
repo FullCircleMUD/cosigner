@@ -135,11 +135,11 @@ python setup/generate_keys.py --count 3 --labels vault_a,cosigner_b,recovery_c
 ### Configure SignerList
 
 ```bash
-# Set up 2-of-3 on vault
+# Set up 2-of-2 on vault
 python setup/configure_signerlist.py \
   --network wss://xrplcluster.com \
   --account-seed sEdMasterKey... \
-  --signers rKeyA:1,rKeyB:1,rKeyC:1 \
+  --signers rKeyA:1,rKeyB:1 \
   --quorum 2
 
 # Verify

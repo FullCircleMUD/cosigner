@@ -7,11 +7,11 @@ master key. Once the signer list is active, all future transactions
 from this account require signatures meeting the quorum.
 
 Usage:
-    # 2-of-3 setup (vault or issuer):
+    # 2-of-2 setup (vault or issuer):
     python setup/configure_signerlist.py \\
         --network wss://s.altnet.rippletest.net:51233 \\
         --account-seed sEdMasterKey... \\
-        --signers rKeyA:1,rKeyB:1,rKeyC:1 \\
+        --signers rKeyA:1,rKeyB:1 \\
         --quorum 2
 
     # Verify current signer list:
